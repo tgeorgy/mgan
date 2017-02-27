@@ -21,7 +21,6 @@ netD = Discriminator(n_attr).cuda()
 
 criterion_MSE = nn.MSELoss().cuda()
 criterion_L1 = nn.L1Loss().cuda()
-#criterion_AE = nn.MSELoss().cuda()
 
 # Init tensors
 inputG_gpu = torch.FloatTensor(batch_size, 3, 128, 128).cuda()
@@ -35,8 +34,8 @@ latent_gpu = Variable(latent_gpu)
 
 dl = CelebADatasetLoader(batch_size, n_latent)
 
-optimizerD = optim.Adam(netD.parameters(), lr=2e-4, betas = (0.5, 0.999))
-optimizerG = optim.Adam(netG.parameters(), lr=2e-4, betas = (0.5, 0.999))
+optimizerD = optim.Adam(netD.parameters(), lr=2e-4, betas=(0.5, 0.999))
+optimizerG = optim.Adam(netG.parameters(), lr=2e-4, betas=(0.5, 0.999))
 
 print_every = 200
 n_epochs = 60
@@ -70,12 +69,11 @@ for epoch_i in xrange(n_epochs):
         loss_D = (loss_D_real + loss_D_fake) / 2
         optimizerD.step()
 
-
         # Train Generator
         output, features = netD(fake)
         loss_G = (output - fake).pow(2).mean()  # MSE
 
-        loss_AE = criterion_L1(fake,inputG_gpu)
+        loss_AE = criterion_L1(fake, inputG_gpu)
 
         loss_G = loss_G + AE_coef*loss_AE
         loss_G.backward()
@@ -86,9 +84,13 @@ for epoch_i in xrange(n_epochs):
         if batch_i % print_every == 0 and batch_i > 1:
             print('Epoch #%d' % (epoch_i+1))
             print('Batch #%d' % batch_i)
-            print('loss_D: %0.3f'%loss_D.data[0] + '\tloss_G: %0.3f'%loss_G.data[0])
-            print('Loss D real: %0.3f'%loss_D_real.data[0], 'Loss D fake: %0.3f'%loss_D_fake.data[0])
+            print('loss_D: %0.3f' % loss_D.data[0],
+                  'loss_G: %0.3f' % loss_G.data[0])
+            print('Loss D real: %0.3f' % loss_D_real.data[0],
+                  'Loss D fake: %0.3f' % loss_D_fake.data[0])
 
-            print('Loss AE: %0.3f'%loss_AE.data[0])
+            print('Loss AE: %0.3f' % loss_AE.data[0])
 
-            torchvision.utils.save_image(torch.cat([fake.data.cpu()[:8], inputG[:8]]), 'progress.png', nrow=8, padding=1)
+            torchvision.utils.save_image(
+                torch.cat([fake.data.cpu()[:8], inputG[:8]]),
+                'progress.png', nrow=8, padding=1)

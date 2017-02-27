@@ -24,7 +24,7 @@ with open('data/list_attr_celeba.txt') as f:
     attrs = [l for l in f]
 
 header = attrs[1].split(' ')
-header = {h:i for i,h in enumerate(header)}
+header = {h: i for i, h in enumerate(header)}
 assert selected_attr in header, 'check attribute name'
 col_id = header[selected_attr] + 1
 

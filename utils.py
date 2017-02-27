@@ -3,11 +3,12 @@ import numpy as np
 import h5py
 import torch
 
+
 class CelebADatasetLoader():
     def __init__(self, batch_size, n_latent):
         with h5py.File('cache/train.h5', 'r') as hf:
             self.img = hf['img'][:]
-            self.attrs = hf['attrs'][:,0]
+            self.attrs = hf['attrs'][:, 0]
 
         tmp_range = np.arange(self.attrs.shape[0])
         self.ones = tmp_range[self.attrs == 1]
@@ -20,7 +21,7 @@ class CelebADatasetLoader():
         rows, cols = input.shape[1:-1]
         for i, img in enumerate(input):
             rand_ang = np.random.rand()*10-5
-            Mrot = cv2.getRotationMatrix2D((cols/2,rows/2),rand_ang,1)
+            Mrot = cv2.getRotationMatrix2D((cols/2, rows/2), rand_ang, 1)
 
             rand_scales = 1 + np.random.rand(2)*0.1-0.05
             Mscale = np.float32([
@@ -32,9 +33,8 @@ class CelebADatasetLoader():
             M = Mrot.dot(Mscale)
 
             input[i] = cv2.warpAffine(img, M, (cols, rows))
-        
-        return input
 
+        return input
 
     def __iter__(self):
         self.samples_remaining = min(self.ones.shape[0], self.zeros.shape[0])
@@ -42,7 +42,6 @@ class CelebADatasetLoader():
         self.shuffle_zeros = np.random.permutation(self.zeros)
         self.start_id = 0
         return self
-
 
     def next(self):
         if self.samples_remaining < self.batch_size:
@@ -52,8 +51,10 @@ class CelebADatasetLoader():
         latent = torch.from_numpy(latent)
 
         # Sampling
-        batch_ids_ones = self.shuffle_ones[self.start_id:self.start_id + self.batch_size]
-        batch_ids_zeros = self.shuffle_zeros[self.start_id:self.start_id + self.batch_size]
+        start_id = self.start_id
+        end_id = self.start_id + self.batch_size
+        batch_ids_ones = self.shuffle_ones[start_id:end_id]
+        batch_ids_zeros = self.shuffle_zeros[start_id:end_id]
         input_G = self.img[batch_ids_zeros]
         input_D = self.img[batch_ids_ones]
 
