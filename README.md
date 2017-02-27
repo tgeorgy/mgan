@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Masking GAN - Generating image attribute mask
 
 ## Motivation
