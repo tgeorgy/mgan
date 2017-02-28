@@ -88,12 +88,13 @@ for epoch_i in xrange(n_epochs):
         if batch_i % print_every == 0 and batch_i > 1:
             print('Epoch #%d' % (epoch_i+1))
             print('Batch #%d' % batch_i)
-            print('loss_D: %0.3f' % loss_D.data[0],
-                  'loss_G: %0.3f' % loss_G.data[0])
-            print('Loss D real: %0.3f' % loss_D_real.data[0],
+            print('Loss D: %0.3f' % loss_D.data[0] + '\t' +
+                  'Loss G: %0.3f' % loss_G.data[0])
+            print('Loss D real: %0.3f' % loss_D_real.data[0] + '\t' +
                   'Loss D fake: %0.3f' % loss_D_fake.data[0])
 
             print('Loss AE: %0.3f' % loss_AE.data[0])
+            print('-'*50)
 
             save_image(torch.cat([fake.data.cpu()[:8], inputG[:8]]),
                        'progress.png', nrow=8, padding=1)
