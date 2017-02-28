@@ -4,6 +4,7 @@ import torch.nn as nn
 import torch.backends.cudnn as cudnn
 from torch.autograd import Variable
 import torch.optim as optim
+from torchvision.utils import save_image
 
 from models import Generator, Discriminator
 from utils import CelebADatasetLoader
@@ -12,12 +13,13 @@ from utils import CelebADatasetLoader
 cudnn.benchmark = True
 batch_size = 64
 n_latent = 16
+odir = 'ckpt'
 torch.manual_seed(1)
 np.random.seed(1)
 
-
+print('Initializing models')
 netG = Generator(n_latent).cuda()
-netD = Discriminator(n_attr).cuda()
+netD = Discriminator().cuda()
 
 criterion_MSE = nn.MSELoss().cuda()
 criterion_L1 = nn.L1Loss().cuda()
@@ -32,6 +34,7 @@ inputG_gpu = Variable(inputG_gpu)
 inputD_gpu = Variable(inputD_gpu)
 latent_gpu = Variable(latent_gpu)
 
+print('Loading data')
 dl = CelebADatasetLoader(batch_size, n_latent)
 
 optimizerD = optim.Adam(netD.parameters(), lr=2e-4, betas=(0.5, 0.999))
@@ -45,6 +48,7 @@ AE_coef = 0.15
 netD.train()
 netG.train()
 
+print('Training...')
 for epoch_i in xrange(n_epochs):
     batch_i = 0
     for inputG, inputD, latent in dl:
@@ -70,7 +74,7 @@ for epoch_i in xrange(n_epochs):
         optimizerD.step()
 
         # Train Generator
-        output, features = netD(fake)
+        output = netD(fake)
         loss_G = (output - fake).pow(2).mean()  # MSE
 
         loss_AE = criterion_L1(fake, inputG_gpu)
@@ -91,6 +95,8 @@ for epoch_i in xrange(n_epochs):
 
             print('Loss AE: %0.3f' % loss_AE.data[0])
 
-            torchvision.utils.save_image(
-                torch.cat([fake.data.cpu()[:8], inputG[:8]]),
-                'progress.png', nrow=8, padding=1)
+            save_image(torch.cat([fake.data.cpu()[:8], inputG[:8]]),
+                       'progress.png', nrow=8, padding=1)
+
+            torch.save(netG, odir+'/netG.pth')
+            torch.save(netD, odir+'/netD.pth')
