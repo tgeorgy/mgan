@@ -4,9 +4,9 @@ from torch.autograd import Variable
 import torch.nn.functional as F
 
 
-class Generator(nn.Module):
-    def __init__(self, nlatent):
-        super(Generator, self).__init__()
+class GeneratorEnc(nn.Module):
+    def __init__(self):
+        super(GeneratorEnc, self).__init__()
         # Encoder layers
         self.enc_conv1 = nn.Conv2d(3, 16, 3, 2, 1)
         self.enc_bn1 = nn.BatchNorm2d(16)
@@ -19,14 +19,27 @@ class Generator(nn.Module):
         self.enc_conv5 = nn.Conv2d(128, 128, 3, 2, 1)
         self.enc_bn5 = nn.BatchNorm2d(128)
 
+    def forward(self, img):
+        enc = F.leaky_relu(self.enc_bn1(self.enc_conv1(img)), 0.2)
+        enc = F.leaky_relu(self.enc_bn2(self.enc_conv2(enc)), 0.2)
+        enc = F.leaky_relu(self.enc_bn3(self.enc_conv3(enc)), 0.2)
+        enc = F.leaky_relu(self.enc_bn4(self.enc_conv4(enc)), 0.2)
+        enc = F.leaky_relu(self.enc_bn5(self.enc_conv5(enc)), 0.2)
+
+        return enc
+
+class GeneratorDec(nn.Module):
+    def __init__(self):
+        super(GeneratorDec, self).__init__()
+
         # Latent parameters embedding layers
-        self.embed_fc1 = nn.Linear(nlatent, 128)
-        self.embed_bn1 = nn.BatchNorm1d(128)
-        self.embed_fc2 = nn.Linear(128, 64*4*4)
-        self.embed_bn2 = nn.BatchNorm2d(64)
+        #self.embed_fc1 = nn.Linear(nlatent, 128)
+        #self.embed_bn1 = nn.BatchNorm1d(128)
+        #self.embed_fc2 = nn.Linear(128, 64*4*4)
+        #self.embed_bn2 = nn.BatchNorm2d(64)
 
         # Decoder layers
-        self.dec_conv1 = nn.Conv2d(128+64, 128, 3, 1, 1, bias=False)
+        self.dec_conv1 = nn.Conv2d(128, 128, 3, 1, 1, bias=False)
         self.dec_bn1 = nn.BatchNorm2d(128)
         self.dec_conv1_ = nn.Conv2d(128, 128*4, 1, 1, 0, bias=False)
         self.dec_bn1_ = nn.BatchNorm2d(128)
@@ -54,22 +67,14 @@ class Generator(nn.Module):
         self.gate_conv5_ = nn.Conv2d(32, 4, 1, 1, 0, bias=False)
         self.gate_bn5 = nn.BatchNorm2d(32)
 
-    def forward(self, img, embed):
-        enc = F.leaky_relu(self.enc_bn1(self.enc_conv1(img)), 0.2)
-        enc = F.leaky_relu(self.enc_bn2(self.enc_conv2(enc)), 0.2)
-        enc = F.leaky_relu(self.enc_bn3(self.enc_conv3(enc)), 0.2)
-        enc = F.leaky_relu(self.enc_bn4(self.enc_conv4(enc)), 0.2)
-        enc = self.enc_bn5(self.enc_conv5(enc))
+    def forward(self, enc, img):
+        #net_emb = F.leaky_relu(self.embed_bn1(self.embed_fc1(embed)), 0.2)
+        #net_emb = self.embed_fc2(net_emb)
+        #net_emb = net_emb.view(-1, 64, 4, 4)
+        #net_emb = self.embed_bn2(net_emb)
 
-        net_emb = F.leaky_relu(self.embed_bn1(self.embed_fc1(embed)), 0.2)
-        net_emb = self.embed_fc2(net_emb)
-        net_emb = net_emb.view(-1, 64, 4, 4)
-        net_emb = self.embed_bn2(net_emb)
-
-        x = torch.cat([enc, net_emb], 1)
-        x = F.leaky_relu(x, 0.2)
-
-        dec = F.leaky_relu(self.dec_bn1(self.dec_conv1(x)), 0.2)
+        #x = torch.cat([enc, net_emb], 1)
+        dec = F.leaky_relu(self.dec_bn1(self.dec_conv1(enc)), 0.2)
         dec = F.pixel_shuffle(self.dec_conv1_(dec), 2)
         dec = F.leaky_relu(self.dec_bn1_(dec), 0.2)
 
@@ -120,20 +125,8 @@ class Discriminator(nn.Module):
         self.enc_conv6 = nn.Conv2d(256, 256, 4, 2, 1, bias=False)
         self.enc_bn6 = nn.BatchNorm2d(256)  # 2x2
 
-        self.fc = nn.Linear(1024, 1024)
-        self.bn = nn.BatchNorm1d(1024)
+        self.fc = nn.Linear(1024, 1)
 
-        self.dec_conv6 = nn.ConvTranspose2d(256, 256, 4, 2, 1, bias=False)
-        self.dec_bn6 = nn.BatchNorm2d(256)
-        self.dec_conv5 = nn.ConvTranspose2d(256, 128, 4, 2, 1, bias=False)
-        self.dec_bn5 = nn.BatchNorm2d(128)
-        self.dec_conv4 = nn.ConvTranspose2d(128, 64, 4, 2, 1, bias=False)
-        self.dec_bn4 = nn.BatchNorm2d(64)
-        self.dec_conv3 = nn.ConvTranspose2d(64, 32, 4, 2, 1, bias=False)
-        self.dec_bn3 = nn.BatchNorm2d(32)
-        self.dec_conv2 = nn.ConvTranspose2d(32, 16, 4, 2, 1, bias=False)
-        self.dec_bn2 = nn.BatchNorm2d(16)
-        self.dec_conv1 = nn.ConvTranspose2d(16, 3, 4, 2, 1, bias=False)
 
     def forward(self, img):
         x = F.leaky_relu(self.enc_bn1(self.enc_conv1(img)), 0.2)
@@ -144,14 +137,6 @@ class Discriminator(nn.Module):
         x = F.leaky_relu(self.enc_bn6(self.enc_conv6(x)), 0.2)
 
         x = x.view(-1, 256*2*2)
-        x = F.leaky_relu(self.bn(self.fc(x)), 0.2)
-        x = x.view(-1, 256, 2, 2)
-
-        x = F.leaky_relu(self.dec_bn6(self.dec_conv6(x)), 0.2)
-        x = F.leaky_relu(self.dec_bn5(self.dec_conv5(x)), 0.2)
-        x = F.leaky_relu(self.dec_bn4(self.dec_conv4(x)), 0.2)
-        x = F.leaky_relu(self.dec_bn3(self.dec_conv3(x)), 0.2)
-        x = F.leaky_relu(self.dec_bn2(self.dec_conv2(x)), 0.2)
-        x = self.dec_conv1(x)
+        x = self.fc(x)
 
         return x
