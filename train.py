@@ -1,3 +1,5 @@
+from utils import CelebADatasetLoader
+
 import numpy as np
 import torch
 import torch.nn as nn
@@ -7,7 +9,6 @@ import torch.optim as optim
 from torchvision.utils import save_image
 
 from models import GeneratorEnc, GeneratorDec, Discriminator
-from utils import CelebADatasetLoader
 
 
 cudnn.benchmark = True
@@ -18,8 +19,8 @@ torch.manual_seed(1)
 np.random.seed(1)
 
 print('Initializing models')
-netGE = Generator().cuda()
-netGD = Generator().cuda()
+netGE = GeneratorEnc().cuda()
+netGD = GeneratorDec().cuda()
 netD = Discriminator().cuda()
 
 criterion_MSE = nn.MSELoss().cuda()
