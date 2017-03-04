@@ -1,6 +1,8 @@
-from utils import CelebADatasetLoader
+from utils import CelebADatasetLoader  # has to load cv2 before loading torch
 
+import argparse
 import numpy as np
+import os
 import torch
 import torch.nn as nn
 import torch.backends.cudnn as cudnn
@@ -11,10 +13,24 @@ from torchvision.utils import save_image
 from models import GeneratorEnc, GeneratorDec, Discriminator
 
 
+parser = argparse.ArgumentParser()
+parser.add_argument('--coefGAN', default=1.0, type=float, help='GAN loss weight')
+parser.add_argument('--coefTID', default=1.0, type=float, help='TID loss weight')
+parser.add_argument('--coefCONST', default=1.0, type=float, help='CONST loss weight')
+
+parser.add_argument('--logdir', default='000', type=str)
+
+opt = parser.parse_args()
+print(opt)
+
+odir = os.path.join('ckpt', opt.logdir)
+if not os.path.exists(odir):
+    os.mkdir(odir)
+
 cudnn.benchmark = True
 batch_size = 64
 n_latent = 16
-odir = 'ckpt'
+
 torch.manual_seed(1)
 np.random.seed(1)
 
@@ -49,8 +65,6 @@ optimizerD = optim.Adam(netD.parameters(), lr=2e-4, betas=(0.5, 0.999))
 
 print_every = 200
 n_epochs = 60
-margin = 0.02
-TID_coef = 1.0
 
 netD.train()
 netGE.train()
@@ -72,8 +86,8 @@ for epoch_i in xrange(n_epochs):
         loss_D_real = criterion_MSE(output, A)
         loss_D_real.backward(retain_variables=True)
 
-        features = netGE(inputG_gpu)
-        fake, mask = netGD(features, inputG_gpu)
+        features_G = netGE(inputG_gpu)
+        fake, mask = netGD(features_G, inputG_gpu)
         output = netD(fake.detach())
         loss_D_fake = criterion_MSE(output, B)
         loss_D_fake.backward()
@@ -83,14 +97,18 @@ for epoch_i in xrange(n_epochs):
 
         # Train Generator
         output = netD(fake)
-        loss_G = criterion_MSE(output, C)
+        loss_GAN = criterion_MSE(output, C)
 
         features_target = netGE(inputD_gpu)
         reconstruction, mask = netGD(features_target, inputD_gpu)
-
         loss_TID = criterion_MSE(reconstruction, inputD_gpu)
 
-        loss_G = loss_G + TID_coef*loss_TID
+        features_G2 = netGE(fake)
+        loss_CONST = (features_G2 - features_G).pow(2).mean()
+
+        loss_G = opt.coefGAN*loss_GAN
+        loss_G += opt.coefTID*loss_TID
+        loss_G += opt.coefCONST*loss_CONST
         loss_G.backward()
 
         optimizerGE.step()
@@ -108,9 +126,11 @@ for epoch_i in xrange(n_epochs):
             print('Loss TID: %0.3f' % loss_TID.data[0])
             print('-'*50)
 
-            save_image(torch.cat([fake.data.cpu()[:8], inputG[:8]]),
-                       'progress.png', nrow=8, padding=1)
+    epoch_i_str = str(epoch_i).zfill(3)
 
-            torch.save(netGE, odir+'/netGE.pth')
-            torch.save(netGD, odir+'/netGD.pth')
-            torch.save(netD, odir+'/netD.pth')
+    save_image(torch.cat([fake.data.cpu()[:16], inputG[:16]]),
+               os.path.join(odir, 'progress_'+epoch_i_str+'.png'), nrow=16, padding=1)
+
+    torch.save(netGE, os.path.join(odir, 'netGE_'+epoch_i_str+'.pth'))
+    torch.save(netGD, os.path.join(odir, 'netGD_'+epoch_i_str+'.pth'))
+    torch.save(netD, os.path.join(odir, 'netD_'+epoch_i_str+'.pth'))
