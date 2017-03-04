@@ -44,17 +44,17 @@ class GeneratorDec(nn.Module):
         self.dec_conv1_ = nn.Conv2d(128, 128*4, 1, 1, 0, bias=False)
         self.dec_bn1_ = nn.BatchNorm2d(128)
 
-        self.dec_conv2 = nn.Conv2d(128+3, 128, 3, 1, 1, bias=False)
+        self.dec_conv2 = nn.Conv2d(128, 128, 3, 1, 1, bias=False)
         self.dec_bn2 = nn.BatchNorm2d(128)
         self.dec_conv2_ = nn.Conv2d(128, 128*4, 1, 1, 0, bias=False)
         self.dec_bn2_ = nn.BatchNorm2d(128)
 
-        self.dec_conv3 = nn.Conv2d(128+3, 64, 3, 1, 1, bias=False)
+        self.dec_conv3 = nn.Conv2d(128, 64, 3, 1, 1, bias=False)
         self.dec_bn3 = nn.BatchNorm2d(64)
         self.dec_conv3_ = nn.Conv2d(64, 64*4, 1, 1, 0, bias=False)
         self.dec_bn3_ = nn.BatchNorm2d(64)
 
-        self.dec_conv4 = nn.Conv2d(64+3, 64, 3, 1, 1, bias=False)
+        self.dec_conv4 = nn.Conv2d(64, 64, 3, 1, 1, bias=False)
         self.dec_bn4 = nn.BatchNorm2d(64)
         self.dec_conv4_ = nn.Conv2d(64, 64*4, 1, 1, 0, bias=False)
         self.dec_bn4_ = nn.BatchNorm2d(64)
@@ -78,17 +78,17 @@ class GeneratorDec(nn.Module):
         dec = F.pixel_shuffle(self.dec_conv1_(dec), 2)
         dec = F.leaky_relu(self.dec_bn1_(dec), 0.2)
 
-        dec = torch.cat([dec, F.avg_pool2d(img, 16)], 1)  # skip connection
+        #dec = torch.cat([dec, F.avg_pool2d(img, 16)], 1)  # skip connection
         dec = F.leaky_relu(self.dec_bn2(self.dec_conv2(dec)), 0.2)
         dec = F.pixel_shuffle(self.dec_conv2_(dec), 2)
         dec = F.leaky_relu(self.dec_bn2_(dec), 0.2)
 
-        dec = torch.cat([dec, F.avg_pool2d(img, 8)], 1)  # skip connection
+        #dec = torch.cat([dec, F.avg_pool2d(img, 8)], 1)  # skip connection
         dec = F.leaky_relu(self.dec_bn3(self.dec_conv3(dec)), 0.2)
         dec = F.pixel_shuffle(self.dec_conv3_(dec), 2)
         dec = F.leaky_relu(self.dec_bn3_(dec), 0.2)
 
-        dec = torch.cat([dec, F.avg_pool2d(img, 4)], 1)  # skip connection
+        #dec = torch.cat([dec, F.avg_pool2d(img, 4)], 1)  # skip connection
         dec = F.leaky_relu(self.dec_bn4(self.dec_conv4(dec)), 0.2)
         dec = F.pixel_shuffle(self.dec_conv4_(dec), 2)
         dec = F.leaky_relu(self.dec_bn4_(dec), 0.2)
