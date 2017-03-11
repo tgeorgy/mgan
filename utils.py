@@ -5,7 +5,7 @@ import torch
 
 
 class CelebADatasetLoader():
-    def __init__(self, batch_size, n_latent):
+    def __init__(self, batch_size):
         with h5py.File('cache/train.h5', 'r') as hf:
             self.img = hf['img'][:]
             self.attrs = hf['attrs'][:, 0]
@@ -14,7 +14,6 @@ class CelebADatasetLoader():
         self.ones = tmp_range[self.attrs == 1]
         self.zeros = tmp_range[self.attrs == 0]
         self.batch_size = batch_size
-        self.n_latent = n_latent
 
     def augment(self, input):
         input = np.transpose(input, [0, 2, 3, 1])
@@ -46,10 +45,6 @@ class CelebADatasetLoader():
     def next(self):
         if self.samples_remaining < self.batch_size:
             raise StopIteration
-        # Init
-        latent = np.random.randn(self.batch_size, self.n_latent)
-        latent = torch.from_numpy(latent)
-
         # Sampling
         start_id = self.start_id
         end_id = self.start_id + self.batch_size
@@ -72,4 +67,4 @@ class CelebADatasetLoader():
         self.start_id = self.start_id + self.batch_size
         self.samples_remaining -= self.batch_size
 
-        return input_G, input_D, latent
+        return input_G, input_D

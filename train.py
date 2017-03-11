@@ -1,4 +1,4 @@
-from utils import CelebADatasetLoader  # has to load cv2 before loading torch
+from utils import CelebADatasetLoader  # have to load cv2 before loading torch
 
 import argparse
 import numpy as np
@@ -12,11 +12,13 @@ from torchvision.utils import save_image
 
 from models import GeneratorEnc, GeneratorDec, Discriminator
 
-
+# Init parameters
 parser = argparse.ArgumentParser()
-parser.add_argument('--coefGAN', default=1.0, type=float, help='GAN loss weight')
-parser.add_argument('--coefTID', default=1.0, type=float, help='TID loss weight')
-parser.add_argument('--coefCONST', default=1.0, type=float, help='CONST loss weight')
+parser.add_argument('--coefGAN', default=0.1, type=float, help='GAN loss weight')
+parser.add_argument('--coefTID', default=10.0, type=float, help='TID loss weight')
+parser.add_argument('--coefCONST', default=10.0, type=float, help='CONST loss weight')
+parser.add_argument('--coefL1', default=0.3, type=float, help='Generator Input-Output L1 dist')
+parser.add_argument('--nepochs', default=120, type=int, help='Number of epochs')
 
 parser.add_argument('--logdir', default='000', type=str)
 
@@ -28,8 +30,9 @@ if not os.path.exists(odir):
     os.mkdir(odir)
 
 cudnn.benchmark = True
+print_every = 200
+save_sample_every = 50
 batch_size = 64
-n_latent = 16
 
 torch.manual_seed(1)
 np.random.seed(1)
@@ -39,45 +42,47 @@ netGE = GeneratorEnc().cuda()
 netGD = GeneratorDec().cuda()
 netD = Discriminator().cuda()
 
+optimizerGE = optim.Adam(netGE.parameters(), lr=2e-4, betas=(0.5, 0.999))
+optimizerGD = optim.Adam(netGD.parameters(), lr=2e-4, betas=(0.5, 0.999))
+optimizerD = optim.Adam(netD.parameters(), lr=2e-4, betas=(0.5, 0.999))
+
 criterion_MSE = nn.MSELoss().cuda()
 criterion_L1 = nn.L1Loss().cuda()
 
-# Init tensors
+print('Initializing Variables')
 inputG_gpu = torch.FloatTensor(batch_size, 3, 128, 128).cuda()
+inputG_gpu_fixed = torch.FloatTensor(batch_size, 3, 128, 128).cuda()
 inputD_gpu = torch.FloatTensor(batch_size, 3, 128, 128).cuda()
-A = 1  * torch.ones(batch_size).cuda()
-B = -1 * torch.ones(batch_size).cuda()
-C = 1  * torch.ones(batch_size).cuda()
+A = 1  * torch.ones(batch_size).cuda()  # Target D (real)
+B = -1 * torch.ones(batch_size).cuda()  # Target D (fake)
+C = 1  * torch.ones(batch_size).cuda()  # Target G (fake)
 
-# Convert to Variables
 inputG_gpu = Variable(inputG_gpu)
+inputG_gpu_fixed = Variable(inputG_gpu_fixed)
 inputD_gpu = Variable(inputD_gpu)
 A = Variable(A)
 B = Variable(B)
 C = Variable(C)
 
 print('Loading data')
-dl = CelebADatasetLoader(batch_size, n_latent)
+dl = CelebADatasetLoader(batch_size)
 
-optimizerGE = optim.Adam(netGE.parameters(), lr=2e-4, betas=(0.5, 0.999))
-optimizerGD = optim.Adam(netGD.parameters(), lr=2e-4, betas=(0.5, 0.999))
-optimizerD = optim.Adam(netD.parameters(), lr=2e-4, betas=(0.5, 0.999))
+inputG, _ = dl.__iter__().next()
+inputG_gpu_fixed.data.copy_(inputG)
 
-print_every = 200
-n_epochs = 60
-
-netD.train()
-netGE.train()
-netGD.train()
 
 print('Training...')
-for epoch_i in xrange(n_epochs):
+for epoch_i in xrange(opt.nepochs):
     batch_i = 0
-    for inputG, inputD, _ in dl:
+    for inputG, inputD in dl:
         inputG_gpu.data.copy_(inputG)
         inputD_gpu.data.copy_(inputD)
 
         # Train Discriminator
+        netD.train()
+        netGE.train()
+        netGD.train()
+
         netD.zero_grad()
         netGE.zero_grad()
         netGD.zero_grad()
@@ -106,9 +111,12 @@ for epoch_i in xrange(n_epochs):
         features_G2 = netGE(fake)
         loss_CONST = (features_G2 - features_G).pow(2).mean()
 
+        loss_L1 = criterion_L1(fake, inputG_gpu)
+
         loss_G = opt.coefGAN*loss_GAN
         loss_G += opt.coefTID*loss_TID
         loss_G += opt.coefCONST*loss_CONST
+        loss_G += opt.coefL1*loss_L1
         loss_G.backward()
 
         optimizerGE.step()
@@ -125,6 +133,21 @@ for epoch_i in xrange(n_epochs):
 
             print('Loss TID: %0.3f' % loss_TID.data[0])
             print('-'*50)
+
+        if batch_i % save_sample_every == 0 and batch_i > 1:
+            netGE.eval()
+            netGD.eval()
+
+            features_G = netGE(inputG_gpu_fixed)
+            fake, _ = netGD(features_G, inputG_gpu_fixed)
+
+            oimg_path = 'evolution_' + str(epoch_i).zfill(3)
+            oimg_path += '_'+str(batch_i).zfill(4)
+            oimg_path += '.png'
+            oimg_path = os.path.join(odir, oimg_path)
+
+            save_image(torch.cat([fake.data.cpu()[:], inputG_gpu_fixed.data.cpu()[:]]),
+                       oimg_path, nrow=64, padding=1)
 
     epoch_i_str = str(epoch_i).zfill(3)
 
