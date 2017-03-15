@@ -109,8 +109,9 @@ class GeneratorDec(nn.Module):
 
 
 class Discriminator(nn.Module):
-    def __init__(self):
+    def __init__(self, dop=0.5):
         super(Discriminator, self).__init__()
+        self.dop = dop
         # Encoder layers
         self.enc_conv1 = nn.Conv2d(3, 16, 4, 2, 1, bias=False)
         self.enc_bn1 = nn.BatchNorm2d(16)  # 64x64
@@ -125,7 +126,7 @@ class Discriminator(nn.Module):
         self.enc_conv6 = nn.Conv2d(256, 256, 4, 2, 1, bias=False)
         self.enc_bn6 = nn.BatchNorm2d(256)  # 2x2
 
-        self.fc = nn.Linear(1024, 1)
+        self.fc = nn.Linear(1024, 3)
 
 
     def forward(self, img):
@@ -137,6 +138,7 @@ class Discriminator(nn.Module):
         x = F.leaky_relu(self.enc_bn6(self.enc_conv6(x)), 0.2)
 
         x = x.view(-1, 256*2*2)
+        x = F.dropout(x, self.dop)
         x = self.fc(x)
 
         return x

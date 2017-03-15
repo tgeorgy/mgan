@@ -14,11 +14,12 @@ from models import GeneratorEnc, GeneratorDec, Discriminator
 
 # Init parameters
 parser = argparse.ArgumentParser()
-parser.add_argument('--coefGAN', default=0.1, type=float, help='GAN loss weight')
-parser.add_argument('--coefTID', default=10.0, type=float, help='TID loss weight')
-parser.add_argument('--coefCONST', default=10.0, type=float, help='CONST loss weight')
+parser.add_argument('--coefGAN', default=1, type=float, help='GAN loss weight')
+parser.add_argument('--coefTID', default=1.0, type=float, help='TID loss weight')
+parser.add_argument('--coefCONST', default=100.0, type=float, help='CONST loss weight')
 parser.add_argument('--coefL1', default=0.3, type=float, help='Generator Input-Output L1 dist')
 parser.add_argument('--nepochs', default=120, type=int, help='Number of epochs')
+parser.add_argument('--dropout', default=0.5, type=float, help='D dropout prob')
 
 parser.add_argument('--logdir', default='000', type=str)
 
@@ -31,7 +32,7 @@ if not os.path.exists(odir):
 
 cudnn.benchmark = True
 print_every = 200
-save_sample_every = 50
+save_sample_every = 500
 batch_size = 64
 
 torch.manual_seed(1)
@@ -40,11 +41,11 @@ np.random.seed(1)
 print('Initializing models')
 netGE = GeneratorEnc().cuda()
 netGD = GeneratorDec().cuda()
-netD = Discriminator().cuda()
+netD = Discriminator(opt.dropout).cuda()
 
-optimizerGE = optim.Adam(netGE.parameters(), lr=2e-4, betas=(0.5, 0.999))
-optimizerGD = optim.Adam(netGD.parameters(), lr=2e-4, betas=(0.5, 0.999))
-optimizerD = optim.Adam(netD.parameters(), lr=2e-4, betas=(0.5, 0.999))
+optimizerGE = optim.Adam(netGE.parameters(), lr=2e-4, betas=(0.5, 0.999), weight_decay=1e-5)
+optimizerGD = optim.Adam(netGD.parameters(), lr=2e-4, betas=(0.5, 0.999), weight_decay=1e-5)
+optimizerD = optim.Adam(netD.parameters(), lr=2e-4, betas=(0.5, 0.999), weight_decay=1e-5)
 
 criterion_MSE = nn.MSELoss().cuda()
 criterion_L1 = nn.L1Loss().cuda()
@@ -53,16 +54,19 @@ print('Initializing Variables')
 inputG_gpu = torch.FloatTensor(batch_size, 3, 128, 128).cuda()
 inputG_gpu_fixed = torch.FloatTensor(batch_size, 3, 128, 128).cuda()
 inputD_gpu = torch.FloatTensor(batch_size, 3, 128, 128).cuda()
-A = 1  * torch.ones(batch_size).cuda()  # Target D (real)
-B = -1 * torch.ones(batch_size).cuda()  # Target D (fake)
-C = 1  * torch.ones(batch_size).cuda()  # Target G (fake)
+P_true = torch.zeros(batch_size, 3).cuda()
+P_true[:, 0] = 1
+P_false = torch.zeros(batch_size, 3).cuda()
+P_false[:, 1] = 1
+P_fake = torch.zeros(batch_size, 3).cuda()
+P_fake[:, 2] = 1
 
 inputG_gpu = Variable(inputG_gpu)
 inputG_gpu_fixed = Variable(inputG_gpu_fixed)
 inputD_gpu = Variable(inputD_gpu)
-A = Variable(A)
-B = Variable(B)
-C = Variable(C)
+P_true = Variable(P_true)
+P_false = Variable(P_false)
+P_fake = Variable(P_fake)
 
 print('Loading data')
 dl = CelebADatasetLoader(batch_size)
@@ -88,21 +92,25 @@ for epoch_i in xrange(opt.nepochs):
         netGD.zero_grad()
 
         output = netD(inputD_gpu)
-        loss_D_real = criterion_MSE(output, A)
+        loss_D_real = criterion_MSE(output, P_true)
         loss_D_real.backward(retain_variables=True)
+
+        output = netD(inputG_gpu)
+        loss_D_false = criterion_MSE(output, P_false)
+        loss_D_false.backward(retain_variables=True)
 
         features_G = netGE(inputG_gpu)
         fake, mask = netGD(features_G, inputG_gpu)
         output = netD(fake.detach())
-        loss_D_fake = criterion_MSE(output, B)
+        loss_D_fake = criterion_MSE(output, P_false)
         loss_D_fake.backward()
 
-        loss_D = (loss_D_real + loss_D_fake) / 2
+        loss_D = (loss_D_real + loss_D_false + loss_D_fake) / 3
         optimizerD.step()
 
         # Train Generator
         output = netD(fake)
-        loss_GAN = criterion_MSE(output, C)
+        loss_GAN = criterion_MSE(output, P_true)
 
         features_target = netGE(inputD_gpu)
         reconstruction, mask = netGD(features_target, inputD_gpu)
