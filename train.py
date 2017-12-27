@@ -1,28 +1,30 @@
 import itertools
+import sys
 
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.backends.cudnn as cudnn
 from torch.autograd import Variable
 import torch.optim as optim
+from torch.optim import lr_scheduler
 from torchvision.utils import save_image
 import torchvision
 
 from models import Generator, Discriminator
 
 batch_size = 1
-lambda_cycle = 2
-lambda_identity = 4
+lambda_cycle = 1
+lambda_identity = 2
 lr = 0.0001
+seed = 0
 
 print_every = 200
 n_epochs = 60
 input_shape = (216, 176)
 odir = 'ckpt'
 
-torch.manual_seed(1)
-np.random.seed(1)
+torch.manual_seed(seed)
+torch.cuda.manual_seed(seed)
 
 cudnn.benchmark = True
 
@@ -35,7 +37,7 @@ transformer = torchvision.transforms.Compose([
         torchvision.transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
     ])
 
-dataset = torchvision.datasets.ImageFolder('data/celeba/', transformer)
+dataset = torchvision.datasets.ImageFolder('data/img_align_celeba/', transformer)
 
 labels_neg = [i for i, (_, l) in enumerate(dataset.imgs) if l == 0]
 labels_pos = [i for i, (_, l) in enumerate(dataset.imgs) if l == 1]
@@ -78,6 +80,8 @@ fake_lbl[:, 0] = -1
 
 opt_G = optim.Adam(list(netP2N.parameters())+list(netN2P.parameters()), lr=lr, betas = (0.5, 0.999))
 opt_D = optim.Adam(list(netDN.parameters())+list(netDP.parameters()), lr=lr, betas = (0.5, 0.999))
+scheduler_G = lr_scheduler.StepLR(opt_G, step_size=10, gamma=0.317)
+scheduler_D = lr_scheduler.StepLR(opt_D, step_size=10, gamma=0.317)
 
 netDN.train()
 netDP.train()
@@ -86,7 +90,10 @@ netN2P.train()
 
 print('Training...')
 for epoch in xrange(n_epochs):
+    scheduler_G.step()
+    scheduler_D.step()
     batch = 0
+
     for (pos, _), (neg, _) in itertools.izip(pos_loader, neg_loader):
         netDN.zero_grad()
         netDP.zero_grad()
@@ -117,8 +124,8 @@ for epoch in xrange(n_epochs):
         loss_P2N_idnt = criterion_identity(fake_pos, real_neg_v)
 
         loss_G = ((loss_P2N_gan + loss_N2P_gan)*0.5 +
-                  (loss_P2N_cyc + loss_N2P_cyc)*0.5*lambda_cycle +
-                  (loss_P2N_idnt + loss_N2P_idnt)*0.5*lambda_identity)
+                  (loss_P2N_cyc + loss_N2P_cyc)*lambda_cycle +
+                  (loss_P2N_idnt + loss_N2P_idnt)*lambda_identity)
 
         loss_G.backward()
         opt_G.step()
@@ -144,22 +151,24 @@ for epoch in xrange(n_epochs):
         if batch % print_every == 0 and batch > 1:
             print('Epoch #%d' % (epoch+1))
             print('Batch #%d' % batch)
+
             print('Loss D: %0.3f' % loss_D.data[0] + '\t' +
                   'Loss G: %0.3f' % loss_G.data[0])
             print('Loss P2N G real: %0.3f' % loss_P2N_gan.data[0] + '\t' +
                   'Loss N2P G fake: %0.3f' % loss_N2P_gan.data[0])
 
             print('-'*50)
+            sys.stdout.flush()
 
             save_image(torch.cat([
-                real_neg.cpu()[0],
+                real_neg.cpu()[0]*0.5+0.5,
                 mask_pos.data.cpu()[0],
-                fake_pos.data.cpu()[0]], 2),
+                fake_pos.data.cpu()[0]*0.5+0.5], 2),
                 'progress_pos.png')
             save_image(torch.cat([
-                real_pos.cpu()[0],
+                real_pos.cpu()[0]*0.5+0.5,
                 mask_neg.data.cpu()[0],
-                fake_neg.data.cpu()[0]], 2),
+                fake_neg.data.cpu()[0]*0.5+0.5], 2),
                 'progress_neg.png')
 
             torch.save(netN2P, odir+'/netN2P.pth')
