@@ -37,7 +37,7 @@ transformer = torchvision.transforms.Compose([
         torchvision.transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
     ])
 
-dataset = torchvision.datasets.ImageFolder('data/img_align_celeba/', transformer)
+dataset = torchvision.datasets.ImageFolder('data/celeba/', transformer)
 
 labels_neg = [i for i, (_, l) in enumerate(dataset.imgs) if l == 0]
 labels_pos = [i for i, (_, l) in enumerate(dataset.imgs) if l == 1]
