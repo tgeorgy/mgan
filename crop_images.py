@@ -18,12 +18,6 @@ for l in attrs[2:]:
     lbls = l.replace('  ', ' ').split(' ')
     info[lbls[0]] = lbls[attr_id] == '1'
 
-if not os.path.exists('data/pos'):
-    os.mkdir('data/pos')
-
-if not os.path.exists('data/neg'):
-    os.mkdir('data/neg')
-
 for fname in os.listdir(ipath):
     if info[fname]:
         os.rename(ipath+fname, 'data/celeba/pos/'+fname)
