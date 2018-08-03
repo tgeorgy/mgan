@@ -33,5 +33,5 @@ Consider following advices if you want to build this kind of a model:
 1. Make sure your GAN model converges without appling mask and L1 loss.
 
 ## Acknowledgments
-The code is inspired by [pytorch-CycleGAN-and-pix2pix](https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix)
+The code is inspired by [pytorch-CycleGAN-and-pix2pix](https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix) . 
 This paper [GANimation: Anatomically-aware Facial Animation from a Single Image arXiv:1807.09251](https://arxiv.org/abs/1807.09251) describes similar training scheme.
