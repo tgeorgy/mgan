@@ -34,3 +34,4 @@ Consider following advices if you want to build this kind of a model:
 
 ## Acknowledgments
 The code is inspired by [pytorch-CycleGAN-and-pix2pix](https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix)
+This paper [GANimation: Anatomically-aware Facial Animation from a Single Image arXiv:1807.09251](https://arxiv.org/abs/1807.09251) describes similar training scheme.
