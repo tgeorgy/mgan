@@ -1,7 +1,10 @@
 # Masking GAN - Generating image attribute mask (pytorch)
 
+## !Disclaimer
+This project is pretty much abandoned. I have achieved following results after spending a lot of time tuning the model. Unfortunatelly I was not able to reproduce results, which means I was lucky to get a good random seed once. Also, I am not interested in research in this direction right now, so the problem won't be fixed any time soon. C'est la vie.
+
 ## Motivation
-When I first approached semantic manipulation problem there was no solution like CycleGAN, or later findings. And even now all of them, including new methods produce artifacts when changing image content.
+When I first approached semantic manipulation problem there was no solution like CycleGAN, or later findings. And even now all of them produce artifacts.
 
 ## Approach
 ![diagram](images/mgan.png "Solution block diagram")
